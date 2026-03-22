@@ -148,38 +148,22 @@ function drawDebris(d) {
   ctx.rotate(d.rot);
 
   if (d.type === 'asteroid') {
-    const g = ctx.createRadialGradient(-d.r*0.3, -d.r*0.3, 0, 0, 0, d.r);
-    g.addColorStop(0, '#6b5a4a'); g.addColorStop(0.6, '#3d2e22'); g.addColorStop(1, '#1a1210');
-    ctx.fillStyle = g;
+    ctx.fillStyle = '#3d2e22';
+    ctx.strokeStyle = '#6b5a4a';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i < d.verts.length; i++) {
       const v = d.verts[i];
       i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y);
     }
-    ctx.closePath(); ctx.fill();
-    // Crater detail
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1;
-    d.craters.forEach(c => {
-      ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, Math.PI*2); ctx.stroke();
-    });
+    ctx.closePath(); ctx.fill(); ctx.stroke();
   } else if (d.type === 'comet') {
-    // Nucleus
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, d.r);
-    g.addColorStop(0, '#aaddff'); g.addColorStop(0.5, '#4488ff'); g.addColorStop(1, '#001144');
-    ctx.fillStyle = g;
+    ctx.fillStyle = '#4488ff';
     ctx.beginPath(); ctx.arc(0, 0, d.r, 0, Math.PI*2); ctx.fill();
-    // Tail
-    const tLen = d.r * 4;
-    const tail = ctx.createLinearGradient(0, 0, tLen, 0);
-    tail.addColorStop(0, 'rgba(100,180,255,0.6)'); tail.addColorStop(1, 'rgba(100,180,255,0)');
-    ctx.fillStyle = tail;
-    ctx.beginPath();
-    ctx.moveTo(0, -d.r*0.4); ctx.lineTo(tLen, 0); ctx.lineTo(0, d.r*0.4); ctx.closePath();
-    ctx.fill();
   } else if (d.type === 'shard') {
-    const g = ctx.createLinearGradient(-d.r, -d.r, d.r, d.r);
-    g.addColorStop(0, '#88ffdd'); g.addColorStop(1, '#004433');
-    ctx.fillStyle = g; ctx.strokeStyle = '#00ffaa'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#004433';
+    ctx.strokeStyle = '#00ffaa';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i < d.verts.length; i++) {
       const v = d.verts[i];
@@ -187,24 +171,14 @@ function drawDebris(d) {
     }
     ctx.closePath(); ctx.fill(); ctx.stroke();
   } else if (d.type === 'ring') {
-    // Saturn-like mini ring
-    ctx.strokeStyle = '#cc8833'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.ellipse(0, 0, d.r, d.r*0.3, 0, 0, Math.PI*2); ctx.stroke();
-    ctx.fillStyle = '#88441166';
-    ctx.beginPath(); ctx.arc(0, 0, d.r*0.5, 0, Math.PI*2); ctx.fill();
-    // Ring glow
-    ctx.strokeStyle = 'rgba(255,180,50,0.4)'; ctx.lineWidth = 8;
+    ctx.strokeStyle = '#cc8833';
+    ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(0, 0, d.r, d.r*0.3, 0, 0, Math.PI*2); ctx.stroke();
   } else if (d.type === 'nebula') {
-    // Gaseous cloud blob
-    for (let i = 0; i < 5; i++) {
-      const bx = d.blobs[i].x, by = d.blobs[i].y, br = d.blobs[i].r;
-      const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-      g.addColorStop(0, d.color + 'aa');
-      g.addColorStop(1, d.color + '00');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2); ctx.fill();
-    }
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = d.color;
+    ctx.beginPath(); ctx.arc(0, 0, d.r, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
   }
   ctx.restore();
 }
@@ -222,14 +196,11 @@ function makeBossDebris(wave) {
     dead: false, isBoss: true,
     verts: [], craters: [], blobs: [], color: '#ff4400'
   };
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2;
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
     const rv = r * (0.75 + Math.random() * 0.25);
     d.verts.push({ x: Math.cos(a) * rv, y: Math.sin(a) * rv });
   }
-  d.craters = Array.from({length: 6}, () => ({
-    x: (Math.random()-0.5)*r, y: (Math.random()-0.5)*r, r: r*0.1+Math.random()*r*0.12
-  }));
   return d;
 }
 
@@ -252,21 +223,15 @@ function makeDebris(wave) {
   };
 
   if (type === 'asteroid' || type === 'shard') {
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
       const rv = r * (0.7 + Math.random() * 0.3);
       d.verts.push({ x: Math.cos(a)*rv, y: Math.sin(a)*rv });
     }
-    d.craters = Array.from({length: 3}, () => ({
-      x: (Math.random()-0.5)*r, y: (Math.random()-0.5)*r, r: r*0.15+Math.random()*r*0.1
-    }));
   }
   if (type === 'nebula') {
     const colors = ['#ff0088','#0088ff','#ff8800','#00ffaa','#aa00ff'];
     d.color = colors[Math.floor(Math.random()*colors.length)];
-    d.blobs = Array.from({length: 5}, () => ({
-      x: (Math.random()-0.5)*r, y: (Math.random()-0.5)*r, r: r*(0.4+Math.random()*0.6)
-    }));
   }
   return d;
 }

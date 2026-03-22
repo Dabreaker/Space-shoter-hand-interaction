@@ -36,7 +36,6 @@ body {
   position: absolute; inset: 0;
   display: flex; flex-direction: column;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.4s ease;
 }
 .screen.active { opacity: 1; pointer-events: all; }
 

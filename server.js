@@ -1,61 +1,63 @@
 // ⟁ Void Commander | server.js
-// Node.js / Express — Vercel Blob — All Unlocked
-// Works on Termux (local) and Vercel (serverless)
+// Node.js / Express — @vercel/blob SDK — All Unlocked
 
-import express  from 'express';
-import cors     from 'cors';
-import path     from 'path';
-import fs       from 'fs';
-import { fileURLToPath } from 'url';
+import express              from 'express';
+import cors                 from 'cors';
+import path                 from 'path';
+import fs                   from 'fs';
+import { fileURLToPath }    from 'url';
 import { networkInterfaces } from 'os';
+import { put, list, head }  from '@vercel/blob';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ON_VERCEL = !!process.env.VERCEL;
+const HAS_BLOB  = !!process.env.BLOB_READ_WRITE_TOKEN;
 
-// ── VERCEL BLOB (native fetch — Node 18+) ────────────────────────────────────
-const BLOB_TOKEN  = process.env.BLOB_READ_WRITE_TOKEN || '';
-const BLOB_BASE   = 'https://blob.vercel-storage.com';
-const BLOB_PREFIX = 'void-commander';
+// ── BLOB HELPERS (@vercel/blob SDK) ───────────────────────────────────────────
+// put()  → upload any buffer / string
+// list() → list blobs by prefix
+// head() → check if a blob exists by URL
 
 async function blobPut(pathname, buffer, contentType = 'application/octet-stream') {
-  if (!BLOB_TOKEN) return null;
+  if (!HAS_BLOB) return null;
   try {
-    const res = await fetch(`${BLOB_BASE}/${BLOB_PREFIX}/${pathname}`, {
-      method: 'PUT',
-      headers: {
-        Authorization:         `Bearer ${BLOB_TOKEN}`,
-        'Content-Type':        contentType,
-        'x-add-random-suffix': '0',
-      },
-      body: buffer,
+    const blob = await put(pathname, buffer, {
+      access:      'public',       // publicly readable URL
+      contentType,
+      addRandomSuffix: false,      // keep exact pathname
     });
-    if (res.ok) return (await res.json()).url || null;
-  } catch (e) { console.error('[BLOB PUT]', e.message); }
-  return null;
+    return blob.url;
+  } catch (e) {
+    console.error('[BLOB PUT]', e.message);
+    return null;
+  }
 }
 
 async function blobFindUrl(pathname) {
-  if (!BLOB_TOKEN) return null;
+  if (!HAS_BLOB) return null;
   try {
-    const url = `${BLOB_BASE}?prefix=${encodeURIComponent(BLOB_PREFIX + '/' + pathname)}&limit=1`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${BLOB_TOKEN}` } });
-    if (res.ok) return (await res.json()).blobs?.[0]?.url || null;
-  } catch (e) { console.error('[BLOB LIST]', e.message); }
-  return null;
+    const { blobs } = await list({ prefix: pathname, limit: 1 });
+    return blobs[0]?.url || null;
+  } catch (e) {
+    console.error('[BLOB LIST]', e.message);
+    return null;
+  }
 }
 
 async function blobGetJson(url) {
   try {
     const res = await fetch(url);
     if (res.ok) return res.json();
-  } catch (e) { console.error('[BLOB GET]', e.message); }
+  } catch (e) {
+    console.error('[BLOB GET JSON]', e.message);
+  }
   return null;
 }
 
-// ── LOCAL FALLBACK (Termux / dev) ─────────────────────────────────────────────
-// On Vercel the filesystem is read-only; use /tmp for any local writes
-const DATA_DIR  = process.env.VERCEL ? '/tmp' : path.join(__dirname, 'data');
+// ── LOCAL FALLBACK (Termux / dev — Vercel fs is read-only) ───────────────────
+const DATA_DIR  = ON_VERCEL ? '/tmp' : path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'player.json');
-if (!process.env.VERCEL) {
+if (!ON_VERCEL) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '{}', 'utf8');
 }
@@ -85,12 +87,12 @@ const POWERUPS = {
 };
 
 const STORE_ITEMS = {
-  shield_pack: { name:'SHIELD PACK', price:0, description:'+50 Shield',       icon:'shield', type:'upgrade' },
-  ammo_boost:  { name:'AMMO BOOST',  price:0, description:'+2 Fire Rate',     icon:'bolt',   type:'upgrade' },
-  engine_tune: { name:'ENGINE TUNE', price:0, description:'+1 Speed',         icon:'rocket', type:'upgrade' },
-  damage_core: { name:'DAMAGE CORE', price:0, description:'+10 Damage',       icon:'fire',   type:'upgrade' },
-  lucky_charm: { name:'LUCKY CHARM', price:0, description:'2x Credits earned',icon:'clover', type:'passive' },
-  auto_repair: { name:'AUTO REPAIR', price:0, description:'Slow shield regen',icon:'wrench', type:'passive' },
+  shield_pack: { name:'SHIELD PACK', price:0, description:'+50 Shield',        icon:'shield', type:'upgrade' },
+  ammo_boost:  { name:'AMMO BOOST',  price:0, description:'+2 Fire Rate',      icon:'bolt',   type:'upgrade' },
+  engine_tune: { name:'ENGINE TUNE', price:0, description:'+1 Speed',          icon:'rocket', type:'upgrade' },
+  damage_core: { name:'DAMAGE CORE', price:0, description:'+10 Damage',        icon:'fire',   type:'upgrade' },
+  lucky_charm: { name:'LUCKY CHARM', price:0, description:'2x Credits earned', icon:'clover', type:'passive' },
+  auto_repair: { name:'AUTO REPAIR', price:0, description:'Slow shield regen', icon:'wrench', type:'passive' },
 };
 
 const NPC_LB = [
@@ -119,31 +121,43 @@ function applyDefaults(d) {
 }
 
 async function loadPlayer() {
-  if (BLOB_TOKEN) {
-    const url  = await blobFindUrl('player.json');
-    if (url) { const d = await blobGetJson(url); if (d) return applyDefaults(d); }
+  if (HAS_BLOB) {
+    const url = await blobFindUrl('void-commander/player.json');
+    if (url) {
+      const data = await blobGetJson(url);
+      if (data) return applyDefaults(data);
+    }
   }
   try {
     return applyDefaults(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')));
-  } catch { return defaults(); }
+  } catch {
+    return defaults();
+  }
 }
 
 async function savePlayer(p) {
   const raw = JSON.stringify(p, null, 2);
-  if (BLOB_TOKEN) await blobPut('player.json', Buffer.from(raw), 'application/json');
+  if (HAS_BLOB) {
+    await blobPut('void-commander/player.json', raw, 'application/json');
+  }
   try { fs.writeFileSync(DATA_FILE, raw, 'utf8'); } catch {}
 }
 
 // ── EXPRESS ───────────────────────────────────────────────────────────────────
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' })); // large enough for base64 photo
 
-// ── STATIC FILES (served from root) ──────────────────────────────────────────
+// Static files — all in root
 app.get('/',         (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/game.js',  (_, res) => res.sendFile(path.join(__dirname, 'game.js')));
 app.get('/app.js',   (_, res) => res.sendFile(path.join(__dirname, 'app.js')));
 app.get('/main.css', (_, res) => res.sendFile(path.join(__dirname, 'main.css')));
+
+// Serve locally saved photos in Termux mode
+if (!ON_VERCEL) {
+  app.use('/photos', express.static(path.join(__dirname, 'photos')));
+}
 
 // ── API ───────────────────────────────────────────────────────────────────────
 app.get('/api/player', async (_, res) => res.json(await loadPlayer()));
@@ -192,7 +206,7 @@ app.post('/api/game_over', async (req, res) => {
   if (score > p.highScore) p.highScore = score;
   const newAch = [];
   for (const [key, cond, label] of [
-    ['first_game', p.totalGames >= 1,   'FIRST LAUNCH 🚀'],
+    ['first_game', p.totalGames >= 1,    'FIRST LAUNCH 🚀'],
     ['score_5k',   p.highScore >= 5000,  'WARP JUMPER ⭐'],
     ['score_15k',  p.highScore >= 15000, 'VOID LEGEND 💀'],
     ['killer_50',  p.totalKills >= 50,   'ASTEROID SLAYER 💥'],
@@ -205,42 +219,61 @@ app.post('/api/game_over', async (req, res) => {
   res.json({ credits:p.credits, highScore:p.highScore, newAchievements:newAch });
 });
 
+// ── PHOTO SAVE ────────────────────────────────────────────────────────────────
 app.post('/api/save_photo', async (req, res) => {
   let { imageData = '' } = req.body || {};
+
+  // Strip data URL header  (data:image/jpeg;base64,...)
   if (imageData.includes(',')) imageData = imageData.split(',')[1];
+
   let buf;
-  try { buf = Buffer.from(imageData, 'base64'); }
-  catch (e) { return res.json({ success:false, msg:`decode error: ${e.message}` }); }
+  try {
+    buf = Buffer.from(imageData, 'base64');
+  } catch (e) {
+    return res.status(400).json({ success:false, msg:`base64 decode failed: ${e.message}` });
+  }
+
+  if (!buf.length) {
+    return res.status(400).json({ success:false, msg:'Empty image data' });
+  }
 
   const ts       = Date.now();
-  const filename = `photos/face-${ts}.jpg`;
+  const blobPath = `void-commander/photos/face-${ts}.jpg`;
 
-  if (BLOB_TOKEN) {
-    const url = await blobPut(filename, buf, 'image/jpeg');
+  // ── Vercel Blob ──────────────────────────────────────────────────────────
+  if (HAS_BLOB) {
+    const url = await blobPut(blobPath, buf, 'image/jpeg');
     if (url) {
-      const p = await loadPlayer(); p.photoUrl = url; await savePlayer(p);
+      console.log(`[PHOTO] saved to blob: ${url}`);
+      const p = await loadPlayer();
+      p.photoUrl = url;
+      await savePlayer(p);
       return res.json({ success:true, url });
+    }
+    // blobPut already logged the error; fall through to local
+    console.warn('[PHOTO] blob upload failed, falling back to local');
+  }
+
+  // ── Local fallback (Termux / dev) ────────────────────────────────────────
+  if (!ON_VERCEL) {
+    const dir      = path.join(__dirname, 'photos');
+    const filePath = path.join(dir, `face-${ts}.jpg`);
+    try {
+      fs.mkdirSync(dir, { recursive:true });
+      fs.writeFileSync(filePath, buf);
+      const localUrl = `/photos/face-${ts}.jpg`;
+      const p = await loadPlayer();
+      p.photoUrl = localUrl;
+      await savePlayer(p);
+      console.log(`[PHOTO] saved locally: ${filePath}`);
+      return res.json({ success:true, url:localUrl });
+    } catch (e) {
+      return res.status(500).json({ success:false, msg:e.message });
     }
   }
 
-  // Local fallback (Termux only — Vercel filesystem is read-only)
-  if (!process.env.VERCEL) {
-    const dir = path.join(__dirname, 'photos');
-    fs.mkdirSync(dir, { recursive:true });
-    const localPath = path.join(dir, `face-${ts}.jpg`);
-    try {
-      fs.writeFileSync(localPath, buf);
-      // Serve photo files from /photos route
-      const localUrl = `/photos/face-${ts}.jpg`;
-      const p = await loadPlayer(); p.photoUrl = localUrl; await savePlayer(p);
-      return res.json({ success:true, url:localUrl });
-    } catch (e) { return res.json({ success:false, msg:e.message }); }
-  }
-  res.json({ success:false, msg:'No BLOB_READ_WRITE_TOKEN configured' });
+  res.status(500).json({ success:false, msg:'BLOB_READ_WRITE_TOKEN not set — add it in Vercel project settings' });
 });
-
-// Serve locally saved photos (Termux only)
-app.use('/photos', express.static(path.join(__dirname, 'photos')));
 
 app.get('/api/leaderboard', async (_, res) => {
   const p = await loadPlayer();
@@ -250,11 +283,11 @@ app.get('/api/leaderboard', async (_, res) => {
   res.json(entries.slice(0, 10));
 });
 
-// ── EXPORT for Vercel serverless ──────────────────────────────────────────────
+// ── Export for Vercel serverless ──────────────────────────────────────────────
 export default app;
 
-// ── LOCAL START (Termux / dev) ────────────────────────────────────────────────
-if (!process.env.VERCEL) {
+// ── Local start (Termux / dev only) ──────────────────────────────────────────
+if (!ON_VERCEL) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, '0.0.0.0', () => {
     let ip = '127.0.0.1';
@@ -265,8 +298,9 @@ if (!process.env.VERCEL) {
         }
       }
     } catch {}
-    console.log(`\n🟢 VOID COMMANDER running!`);
-    console.log(`🎮 Local:  http://127.0.0.1:${PORT}`);
-    console.log(`📱 LAN:    http://${ip}:${PORT}\n`);
+    console.log(`\n🟢 VOID COMMANDER`);
+    console.log(`🎮  http://127.0.0.1:${PORT}`);
+    console.log(`📱  http://${ip}:${PORT}`);
+    console.log(`🗄️  Blob storage: ${HAS_BLOB ? 'ENABLED' : 'LOCAL FALLBACK'}\n`);
   });
 }

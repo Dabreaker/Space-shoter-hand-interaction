@@ -357,12 +357,9 @@ const App = {
     clearTimeout(captureTimer);
     clearInterval(countdownInterval);
 
-    setTimeout(() => {
-      GAME.startGame(playerData, { ...ship });
-      window._onGameOver = this.onGameOver.bind(this);
-      // Start 5-second face capture countdown
-      captureTimer = setTimeout(startFaceCapture, 800);
-    }, 200);
+    GAME.startGame(playerData, { ...ship });
+    window._onGameOver = this.onGameOver.bind(this);
+    captureTimer = setTimeout(startFaceCapture, 800);
   },
 
   async onGameOver(score, kills, credits) {
