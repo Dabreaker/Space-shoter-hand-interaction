@@ -122,7 +122,8 @@ function applyDefaults(d) {
 
 async function loadPlayer() {
   if (HAS_BLOB) {
-    const url = await blobFindUrl('void-commander/player.json');
+    // 'player.json' is the exact pathname used in blobPut
+    const url = await blobFindUrl('player.json');
     if (url) {
       const data = await blobGetJson(url);
       if (data) return applyDefaults(data);
@@ -138,7 +139,8 @@ async function loadPlayer() {
 async function savePlayer(p) {
   const raw = JSON.stringify(p, null, 2);
   if (HAS_BLOB) {
-    await blobPut('void-commander/player.json', raw, 'application/json');
+    // Store under 'player.json' — flat key, no prefix needed
+    await blobPut('player.json', raw, 'application/json');
   }
   try { fs.writeFileSync(DATA_FILE, raw, 'utf8'); } catch {}
 }
@@ -238,7 +240,7 @@ app.post('/api/save_photo', async (req, res) => {
   }
 
   const ts       = Date.now();
-  const blobPath = `void-commander/photos/face-${ts}.jpg`;
+  const blobPath = `photos/face-${ts}.jpg`;
 
   // ── Vercel Blob ──────────────────────────────────────────────────────────
   if (HAS_BLOB) {
