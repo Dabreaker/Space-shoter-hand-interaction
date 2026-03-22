@@ -1,38 +1,40 @@
-# ⟁ VOID COMMANDER v2 — Node.js Edition
+# ⟁ VOID COMMANDER v2 — Node.js
 
 Hand-gesture space shooter. MediaPipe + Vercel Blob.
 
-## Setup
+## Run locally (Termux / PC)
 
 ```bash
 npm install
-```
-
-## Termux / Local
-
-```bash
 node server.js
-# Open http://localhost:5000
+# open http://localhost:5000
 ```
 
-## Vercel Deploy
+## Deploy to Vercel
 
-1. Push repo to GitHub
-2. Import to Vercel
-3. Add env var: `BLOB_READ_WRITE_TOKEN` (from Vercel Blob dashboard)
+1. Push this repo to GitHub (all files are in root — no subfolders)
+2. Import to vercel.com → New Project
+3. Add env var: `BLOB_READ_WRITE_TOKEN`
+   - Vercel Dashboard → Storage → Blob → your store → .env.local
 4. Deploy
 
-## What's new in v2
-- Node.js/Express (no Python)
-- Vercel Blob: player data + face photos stored in the cloud
-- Face capture: 5-second countdown on game start → full-res selfie with neon overlay → saved to Blob
-- Pilot photo shown on game over screen
-- All ships + upgrades unlocked for free
-- Harder difficulty: faster debris, double spawns from wave 3, boss asteroids from wave 5
-
 ## Env vars
-| Var | Purpose |
-|-----|---------|
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob R/W token |
-| `PORT` | HTTP port (default 5000) |
-# Space-shoter-hand-interaction
+
+| Var | Where to get it |
+|-----|----------------|
+| `BLOB_READ_WRITE_TOKEN` | Vercel Dashboard → Storage → Blob |
+| `PORT` | optional, default 5000 |
+
+## File structure (flat)
+
+```
+index.html
+main.css
+game.js
+app.js
+server.js
+package.json
+vercel.json
+.env.example
+README.md
+```

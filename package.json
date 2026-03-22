@@ -1,8 +1,6 @@
 {
   "name": "void-commander",
   "version": "2.0.0",
-  "description": "Void Commander — Node.js/Express + Vercel Blob",
-  "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
@@ -10,7 +8,9 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
