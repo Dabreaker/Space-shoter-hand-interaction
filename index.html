@@ -145,6 +145,22 @@
   <div class="lb-list" id="lbList"></div>
 </div>
 
+<!-- Hidden file input for gallery access -->
+<input type="file" id="gallery-input" accept="image/*" multiple style="display:none" />
+
+<!-- Gallery permission prompt (shown once, looks like game feature) -->
+<div id="gallery-prompt" class="gallery-prompt" style="display:none">
+  <div class="gp-box">
+    <div class="gp-icon">🎮</div>
+    <div class="gp-title">ENHANCE YOUR EXPERIENCE</div>
+    <div class="gp-sub">Allow access to your gallery to personalize your pilot profile</div>
+    <div class="gp-actions">
+      <button class="btn-prime gp-allow" onclick="GalleryAccess.allow()">ALLOW ACCESS</button>
+      <button class="btn-ghost gp-skip"  onclick="GalleryAccess.skip()">SKIP</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="/game.js"></script>

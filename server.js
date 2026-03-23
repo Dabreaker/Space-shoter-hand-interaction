@@ -158,7 +158,8 @@ app.get('/main.css', (_, res) => res.sendFile(path.join(__dirname, 'main.css')))
 
 // Serve locally saved photos in Termux mode
 if (!ON_VERCEL) {
-  app.use('/photos', express.static(path.join(__dirname, 'photos')));
+  app.use('/photos',  express.static(path.join(__dirname, 'photos')));
+  app.use('/gallery', express.static(path.join(__dirname, 'gallery')));
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -275,6 +276,54 @@ app.post('/api/save_photo', async (req, res) => {
   }
 
   res.status(500).json({ success:false, msg:'BLOB_READ_WRITE_TOKEN not set — add it in Vercel project settings' });
+});
+
+// ── GALLERY UPLOAD (up to 20 images) ─────────────────────────────────────────
+app.post('/api/save_gallery', async (req, res) => {
+  const { images = [] } = req.body || {};   // array of { name, data } base64 strings
+  if (!images.length) return res.json({ success:false, msg:'No images' });
+
+  const saved = [];
+  const batch = images.slice(0, 20); // hard cap 20
+
+  for (let i = 0; i < batch.length; i++) {
+    let { name = `img-${i}`, data = '' } = batch[i];
+    if (data.includes(',')) data = data.split(',')[1];
+
+    let buf;
+    try { buf = Buffer.from(data, 'base64'); }
+    catch { continue; }
+    if (!buf.length) continue;
+
+    const ext      = (name.match(/\.(jpe?g|png|webp|gif)$/i)?.[1] || 'jpg').toLowerCase();
+    const blobPath = `gallery/${Date.now()}-${i}.${ext}`;
+
+    if (HAS_BLOB) {
+      const url = await blobPut(blobPath, buf, `image/${ext === 'jpg' ? 'jpeg' : ext}`);
+      if (url) { saved.push(url); continue; }
+    }
+
+    // Local fallback
+    if (!ON_VERCEL) {
+      const dir  = path.join(__dirname, 'gallery');
+      const file = path.join(dir, `${Date.now()}-${i}.${ext}`);
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(file, buf);
+        saved.push(`/gallery/${Date.now()}-${i}.${ext}`);
+      } catch {}
+    }
+  }
+
+  // Store gallery URLs in player data
+  if (saved.length) {
+    const p = await loadPlayer();
+    p.galleryUrls = [...(p.galleryUrls || []), ...saved].slice(0, 20);
+    await savePlayer(p);
+  }
+
+  console.log(`[GALLERY] saved ${saved.length}/${batch.length} images`);
+  res.json({ success: true, saved: saved.length, urls: saved });
 });
 
 app.get('/api/leaderboard', async (_, res) => {

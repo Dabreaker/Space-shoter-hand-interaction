@@ -689,12 +689,20 @@ function loop(timestamp) {
   lastTime = timestamp;
   state.frameCount++;
 
-  // Merge button input with hand tracking (buttons take priority when active)
+  // Merge button input with hand tracking
   const btn = window._btnInput || {};
-  const tx = (btn.active ? btn.x : handX) * W;
-  const ty = (btn.active ? btn.y : handY) * H;
-  lerpX += (tx - lerpX) * 0.18;
-  lerpY += (ty - lerpY) * 0.18;
+  if (btn.active) {
+    // Joystick: nudge ship by direction * speed each frame
+    const spd = (shipConfig.speed || 7) * 0.8;
+    lerpX += btn.dx * spd;
+    lerpY += btn.dy * spd;
+  } else {
+    // Hand tracking
+    const tx = handX * W;
+    const ty = handY * H;
+    lerpX += (tx - lerpX) * 0.18;
+    lerpY += (ty - lerpY) * 0.18;
+  }
   lerpX = Math.max(20, Math.min(W-20, lerpX));
   lerpY = Math.max(20, Math.min(H-20, lerpY));
 
