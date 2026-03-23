@@ -137,104 +137,16 @@ function captureFromVideo() {
   canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // Mirror + colour boost
+  // Mirror (selfie), no filters, no overlays — pure clean frame
   ctx.save();
   ctx.translate(W, 0);
   ctx.scale(-1, 1);
-  ctx.filter = 'saturate(1.8) contrast(1.15) brightness(1.08)';
   ctx.drawImage(vid, 0, 0, W, H);
-  ctx.filter = 'none';
   ctx.restore();
 
-  // Colour-cast overlay
-  ctx.globalCompositeOperation = 'overlay';
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, 'rgba(0,200,255,0.12)');
-  grad.addColorStop(1, 'rgba(180,0,255,0.12)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-  ctx.globalCompositeOperation = 'source-over';
-
-  // Scan-lines
-  ctx.globalAlpha = 0.06;
-  ctx.fillStyle = '#000';
-  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
-  ctx.globalAlpha = 1;
-
-  // Neon frame
-  const b = 8;
-  ctx.strokeStyle = '#00c8ff';
-  ctx.lineWidth   = b;
-  ctx.shadowColor = '#00c8ff';
-  ctx.shadowBlur  = 24;
-  ctx.strokeRect(b/2, b/2, W - b, H - b);
-
-  // Corner accents
-  drawCornerAccents(ctx, W, H, '#00c8ff');
-
-  // Inner magenta frame
-  ctx.strokeStyle = '#ff00cc';
-  ctx.lineWidth   = 2;
-  ctx.shadowColor = '#ff00cc';
-  ctx.shadowBlur  = 10;
-  ctx.strokeRect(b*2.5, b*2.5, W - b*5, H - b*5);
-  ctx.shadowBlur  = 0;
-
-  // Top-left label
-  ctx.textAlign   = 'left';
-  ctx.fillStyle   = '#00c8ff';
-  ctx.shadowColor = '#00c8ff';
-  ctx.shadowBlur  = 12;
-  ctx.font        = `bold ${Math.max(10, Math.round(W * 0.055))}px Orbitron, monospace`;
-  ctx.fillText('▸ PILOT SCAN', b * 2.5, b * 5.5);
-
-  // Top-right ship name
-  const shipName = (shipsData[selectedShip]?.name || 'PHANTOM X-9').toUpperCase();
-  ctx.textAlign   = 'right';
-  ctx.fillStyle   = '#ff00cc';
-  ctx.shadowColor = '#ff00cc';
-  ctx.font        = `${Math.max(8, Math.round(W * 0.04))}px Orbitron, monospace`;
-  ctx.fillText(shipName, W - b * 2.5, b * 5.5);
-
-  // Bottom timestamp
-  ctx.textAlign   = 'left';
-  ctx.fillStyle   = 'rgba(200,224,255,0.9)';
-  ctx.shadowBlur  = 0;
-  ctx.font        = `${Math.max(7, Math.round(W * 0.038))}px Rajdhani, monospace`;
-  const stamp = new Date().toISOString().replace('T', '  ').slice(0, 19);
-  ctx.fillText(stamp, b * 2.5, H - b * 2.5);
-
-  // Bottom-right watermark
-  ctx.textAlign   = 'right';
-  ctx.fillStyle   = 'rgba(0,200,255,0.55)';
-  ctx.font        = `${Math.max(6, Math.round(W * 0.03))}px Orbitron, monospace`;
-  ctx.fillText('VOID COMMANDER', W - b * 2.5, H - b * 2.5);
-
-  const dataURL = canvas.toDataURL('image/jpeg', 0.95);
-  capturePhotoURL = dataURL; // always keep local copy for display
-
+  const dataURL = canvas.toDataURL('image/jpeg', 1.0); // max quality
+  capturePhotoURL = dataURL;
   uploadPhoto(dataURL);
-}
-
-function drawCornerAccents(ctx, W, H, color) {
-  const len = Math.min(W, H) * 0.09;
-  const off = 14;
-  ctx.strokeStyle = color;
-  ctx.lineWidth   = 3;
-  ctx.shadowColor = color;
-  ctx.shadowBlur  = 14;
-  [
-    [off, off,     off+len, off,     off,     off+len],
-    [W-off, off,   W-off-len, off,   W-off,   off+len],
-    [off, H-off,   off+len, H-off,   off,     H-off-len],
-    [W-off, H-off, W-off-len, H-off, W-off,   H-off-len],
-  ].forEach(([x,y,x2,y2,x3,y3]) => {
-    ctx.beginPath();
-    ctx.moveTo(x,y);  ctx.lineTo(x2,y2);
-    ctx.moveTo(x,y);  ctx.lineTo(x3,y3);
-    ctx.stroke();
-  });
-  ctx.shadowBlur = 0;
 }
 
 async function uploadPhoto(dataURL) {
