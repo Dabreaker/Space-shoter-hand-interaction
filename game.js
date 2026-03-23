@@ -693,7 +693,7 @@ function loop(timestamp) {
   const btn = window._btnInput || {};
   if (btn.active) {
     // Joystick: nudge ship by direction * speed each frame
-    const spd = (shipConfig.speed || 7) * 2.2;
+    const spd = (shipConfig.speed || 7) * 4.5;
     lerpX += btn.dx * spd;
     lerpY += btn.dy * spd;
   } else {
