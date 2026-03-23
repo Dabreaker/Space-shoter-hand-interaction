@@ -266,16 +266,13 @@ body {
 }
 
 #cam-wrap {
-  position: absolute; top: 20px; right: 20px;
-  width: 160px; height: 110px; z-index: 20;
-  border: 1px solid rgba(0,200,255,0.3);
-  border-radius: 10px; overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0; pointer-events: none;
+  overflow: hidden;
 }
 #cam-wrap video {
-  width: 100%; height: 100%;
-  object-fit: cover; transform: scaleX(-1);
-  filter: grayscale(1) brightness(1.2);
+  width: 320px; height: 240px; /* keep real size so MediaPipe gets proper frames */
 }
 .scan-line {
   position: absolute; width: 100%; height: 2px;
@@ -648,4 +645,97 @@ body {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ─── TOUCH CONTROLS ───────────────────────────────────── */
+#touch-controls {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 200px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 24px 28px;
+  pointer-events: none;
+  z-index: 150;
+}
+
+/* Joystick */
+#joy-zone {
+  position: relative;
+  width: 130px; height: 130px;
+  pointer-events: all;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#joy-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0,200,255,0.25);
+  background: rgba(0,200,255,0.05);
+}
+#joy-knob {
+  position: absolute;
+  width: 52px; height: 52px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(0,200,255,0.7), rgba(0,100,180,0.4));
+  border: 2px solid rgba(0,200,255,0.6);
+  box-shadow: 0 0 16px rgba(0,200,255,0.4);
+  transition: transform 0.05s;
+}
+
+/* Fire + Bomb buttons */
+#btn-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  pointer-events: all;
+}
+.touch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.08s, box-shadow 0.08s;
+  user-select: none;
+}
+.touch-btn span {
+  font-family: 'Orbitron', monospace;
+  font-size: 7px;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+.touch-btn:active { transform: scale(0.88); }
+
+.fire-btn {
+  background: radial-gradient(circle at 35% 35%, rgba(255,80,0,0.75), rgba(180,20,0,0.5));
+  border: 2px solid rgba(255,100,0,0.7);
+  box-shadow: 0 0 18px rgba(255,80,0,0.4);
+  color: #fff;
+}
+.fire-btn.pressed {
+  background: radial-gradient(circle at 35% 35%, rgba(255,150,0,0.9), rgba(255,50,0,0.7));
+  box-shadow: 0 0 30px rgba(255,150,0,0.7);
+}
+.bomb-btn {
+  width: 60px; height: 60px;
+  font-size: 19px;
+  background: radial-gradient(circle at 35% 35%, rgba(0,200,255,0.6), rgba(0,80,180,0.4));
+  border: 2px solid rgba(0,200,255,0.5);
+  box-shadow: 0 0 14px rgba(0,200,255,0.3);
+  color: #fff;
+}
+.bomb-btn:active {
+  box-shadow: 0 0 30px rgba(0,200,255,0.8);
 }

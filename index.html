@@ -84,12 +84,19 @@
     </div>
   </div>
   <div id="powerup-tray"></div>
-  <div id="gesture-guide">
-    <div class="gg-item"><span class="gg-icon">✋</span><span>OPEN = MOVE</span></div>
-    <div class="gg-item"><span class="gg-icon">👆</span><span>1 FINGER = FIRE</span></div>
-    <div class="gg-item"><span class="gg-icon">✌️</span><span>2 FINGERS = RAPID</span></div>
-    <div class="gg-item"><span class="gg-icon">🤙</span><span>3 FINGERS = TRIPLE</span></div>
-    <div class="gg-item"><span class="gg-icon">✊</span><span>FIST = BOMB</span></div>
+
+  <!-- Touch controls -->
+  <div id="touch-controls">
+    <!-- Left: joystick zone -->
+    <div id="joy-zone">
+      <div id="joy-ring"></div>
+      <div id="joy-knob"></div>
+    </div>
+    <!-- Right: action buttons -->
+    <div id="btn-zone">
+      <button id="btn-fire" class="touch-btn fire-btn">🔥<span>FIRE</span></button>
+      <button id="btn-bomb" class="touch-btn bomb-btn">💣<span>BOMB</span></button>
+    </div>
   </div>
 </div>
 

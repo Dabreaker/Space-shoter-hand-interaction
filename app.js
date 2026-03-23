@@ -445,5 +445,97 @@ const Leaderboard = {
   }
 };
 
+// ── TOUCH CONTROLS ────────────────────────────────────────
+// Writes into window._btnInput which game.js reads each frame
+
+window._btnInput = { active: false, x: 0.5, y: 0.75, firing: false, bomb: false };
+
+(function initTouchControls() {
+  const joyZone  = document.getElementById('joy-zone');
+  const joyKnob  = document.getElementById('joy-knob');
+  const fireBtn  = document.getElementById('btn-fire');
+  const bombBtn  = document.getElementById('btn-bomb');
+  const RADIUS   = 52; // max knob travel from centre (px)
+
+  if (!joyZone) return;
+
+  let joyOrigin  = null; // { x, y } centre of joystick in page coords
+  let joyTouchId = null;
+
+  function joyRect() { return joyZone.getBoundingClientRect(); }
+
+  function setCentre() {
+    const r = joyRect();
+    joyOrigin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  function moveKnob(px, py) {
+    if (!joyOrigin) setCentre();
+    let dx = px - joyOrigin.x;
+    let dy = py - joyOrigin.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > RADIUS) { dx = dx/dist*RADIUS; dy = dy/dist*RADIUS; }
+
+    joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+    // Normalise to 0-1 game coords
+    window._btnInput.active = true;
+    window._btnInput.x = Math.max(0.05, Math.min(0.95, (joyOrigin.x + dx) / window.innerWidth));
+    window._btnInput.y = Math.max(0.05, Math.min(0.95, (joyOrigin.y + dy) / window.innerHeight));
+  }
+
+  function resetKnob() {
+    joyKnob.style.transform = 'translate(-50%, -50%)';
+    window._btnInput.active = false;
+    joyTouchId = null;
+  }
+
+  joyZone.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    joyTouchId = t.identifier;
+    setCentre();
+    moveKnob(t.clientX, t.clientY);
+  }, { passive: false });
+
+  joyZone.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === joyTouchId) moveKnob(t.clientX, t.clientY);
+    }
+  }, { passive: false });
+
+  joyZone.addEventListener('touchend',    e => { e.preventDefault(); resetKnob(); }, { passive: false });
+  joyZone.addEventListener('touchcancel', e => { e.preventDefault(); resetKnob(); }, { passive: false });
+
+  // Mouse fallback (desktop testing)
+  joyZone.addEventListener('mousedown', e => { setCentre(); moveKnob(e.clientX, e.clientY); });
+  window.addEventListener('mousemove',  e => { if (window._btnInput.active) moveKnob(e.clientX, e.clientY); });
+  window.addEventListener('mouseup',    () => { if (window._btnInput.active) resetKnob(); });
+
+  // ── FIRE button (hold = continuous) ───────────────────
+  fireBtn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    window._btnInput.firing = true;
+    fireBtn.classList.add('pressed');
+  }, { passive: false });
+  const stopFire = e => {
+    e?.preventDefault();
+    window._btnInput.firing = false;
+    fireBtn.classList.remove('pressed');
+  };
+  fireBtn.addEventListener('touchend',    stopFire, { passive: false });
+  fireBtn.addEventListener('touchcancel', stopFire, { passive: false });
+  fireBtn.addEventListener('mousedown', () => { window._btnInput.firing = true;  fireBtn.classList.add('pressed'); });
+  fireBtn.addEventListener('mouseup',   () => { window._btnInput.firing = false; fireBtn.classList.remove('pressed'); });
+
+  // ── BOMB button (one-shot) ─────────────────────────────
+  bombBtn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    window._btnInput.bomb = true;
+  }, { passive: false });
+  bombBtn.addEventListener('mousedown', () => { window._btnInput.bomb = true; });
+})();
+
 // ── BOOT ──────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => App.init());

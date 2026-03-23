@@ -689,19 +689,20 @@ function loop(timestamp) {
   lastTime = timestamp;
   state.frameCount++;
 
-  // Gesture-based ship movement
-  const tx = handX * W;
-  const ty = handY * H;
+  // Merge button input with hand tracking (buttons take priority when active)
+  const btn = window._btnInput || {};
+  const tx = (btn.active ? btn.x : handX) * W;
+  const ty = (btn.active ? btn.y : handY) * H;
   lerpX += (tx - lerpX) * 0.18;
   lerpY += (ty - lerpY) * 0.18;
   lerpX = Math.max(20, Math.min(W-20, lerpX));
   lerpY = Math.max(20, Math.min(H-20, lerpY));
 
-  // Auto fire on point gesture
-  if (gesture === 'point' || gesture === 'peace' || gesture === 'nova') fireBullet();
+  // Fire: gesture OR button
+  if (gesture === 'point' || gesture === 'peace' || gesture === 'nova' || btn.firing) fireBullet();
 
-  // Fist = bomb
-  if (gesture === 'fist') triggerBomb();
+  // Bomb: gesture OR button
+  if (gesture === 'fist' || btn.bomb) { triggerBomb(); if (btn.bomb) btn.bomb = false; }
 
   // Update stars
   state.stars.forEach(s => {
