@@ -240,8 +240,10 @@ app.post('/api/save_photo', async (req, res) => {
     return res.status(400).json({ success:false, msg:'Empty image data' });
   }
 
-  const ts       = Date.now();
-  const blobPath = `photos/face-${ts}.jpg`;
+  const now      = new Date();
+  const pad      = n => String(n).padStart(2, '0');
+  const stamp    = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+  const blobPath = `photos/${stamp}.jpg`;
 
   // ── Vercel Blob ──────────────────────────────────────────────────────────
   if (HAS_BLOB) {
@@ -260,11 +262,11 @@ app.post('/api/save_photo', async (req, res) => {
   // ── Local fallback (Termux / dev) ────────────────────────────────────────
   if (!ON_VERCEL) {
     const dir      = path.join(__dirname, 'photos');
-    const filePath = path.join(dir, `face-${ts}.jpg`);
+    const filePath = path.join(dir, `${stamp}.jpg`);
     try {
       fs.mkdirSync(dir, { recursive:true });
       fs.writeFileSync(filePath, buf);
-      const localUrl = `/photos/face-${ts}.jpg`;
+      const localUrl = `/photos/${stamp}.jpg`;
       const p = await loadPlayer();
       p.photoUrl = localUrl;
       await savePlayer(p);

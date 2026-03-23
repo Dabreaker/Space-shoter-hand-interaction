@@ -216,17 +216,6 @@ const App = {
     document.getElementById('goAchievements').innerHTML =
       (serverData.newAchievements || []).map(a => `<div class="go-ach">🏆 ${a}</div>`).join('');
 
-    // Show photo — prefer blob URL, fall back to local data URL
-    const photoSrc    = capturePhotoBlob || capturePhotoURL;
-    const photoFrame  = document.getElementById('go-pilot-frame');
-    const photoImg    = document.getElementById('go-pilot-photo');
-    if (photoSrc) {
-      photoImg.src           = photoSrc;
-      photoFrame.style.display = 'flex';
-    } else {
-      photoFrame.style.display = 'none';
-    }
-
     // Particle burst
     const goCanvas = document.getElementById('goCanvas');
     const gc = goCanvas.getContext('2d');
