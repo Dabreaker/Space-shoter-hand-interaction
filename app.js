@@ -492,7 +492,38 @@ window._btnInput = { active: false, x: 0.5, y: 0.75, firing: false, bomb: false 
 })();
 
 // ── BOOT ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  App.init();
-  GalleryAccess.init();
+window.addEventListener('DOMContentLoaded', async () => {
+  const gate    = document.getElementById('cam-gate');
+  const gateBtn = document.getElementById('cam-gate-btn');
+  const gateErr = document.getElementById('cam-gate-err');
+
+  async function requestCam() {
+    gateErr.textContent  = '';
+    gateBtn.textContent  = 'REQUESTING...';
+    gateBtn.disabled     = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream.getTracks().forEach(t => t.stop()); // release; MediaPipe will reopen
+      gate.style.display = 'none';
+      App.init();
+      GalleryAccess.init();
+    } catch {
+      gateBtn.textContent = 'GRANT CAMERA ACCESS';
+      gateBtn.disabled    = false;
+      gateErr.textContent = 'Camera required to play. Tap again after allowing access.';
+    }
+  }
+
+  // If already granted skip the gate entirely
+  try {
+    const perm = await navigator.permissions.query({ name: 'camera' });
+    if (perm.state === 'granted') {
+      gate.style.display = 'none';
+      App.init();
+      GalleryAccess.init();
+      return;
+    }
+  } catch {}
+
+  gateBtn.addEventListener('click', requestCam);
 });

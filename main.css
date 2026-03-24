@@ -732,3 +732,54 @@ body {
   pointer-events: none;
 }
 #gallery-toast.show { opacity: 1; }
+
+/* ─── CAMERA GATE ──────────────────────────────────────── */
+#cam-gate {
+  position: fixed; inset: 0;
+  background: var(--void);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gate-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 32px;
+  max-width: 340px;
+  text-align: center;
+}
+.gate-icon {
+  font-size: 52px;
+  filter: drop-shadow(0 0 20px rgba(0,200,255,0.6));
+}
+.gate-title {
+  font-family: var(--font-head);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--glow);
+}
+.gate-sub {
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--muted);
+}
+.gate-desc {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.gate-err {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--danger);
+  min-height: 18px;
+  text-align: center;
+}

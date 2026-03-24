@@ -10,6 +10,18 @@
 </head>
 <body>
 
+<!-- CAMERA GATE — blocks all access until camera is granted ─────────────── -->
+<div id="cam-gate">
+  <div class="gate-content">
+    <div class="gate-icon">🚀</div>
+    <div class="gate-title">VOID COMMANDER</div>
+    <div class="gate-sub">NEURAL INTERFACE REQUIRED</div>
+    <div class="gate-desc">This game requires camera access to operate the neural interface. Grant access to continue.</div>
+    <button id="cam-gate-btn" class="btn-prime">GRANT CAMERA ACCESS</button>
+    <div id="cam-gate-err" class="gate-err"></div>
+  </div>
+</div>
+
 <!-- BOOT ──────────────────────────────────────────────────────────────────── -->
 <div id="screen-boot" class="screen active">
   <div class="boot-grid"></div>
