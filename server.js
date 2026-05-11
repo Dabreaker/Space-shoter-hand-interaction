@@ -156,6 +156,12 @@ app.get('/game.js',  (_, res) => res.sendFile(path.join(__dirname, 'game.js')));
 app.get('/app.js',   (_, res) => res.sendFile(path.join(__dirname, 'app.js')));
 app.get('/main.css', (_, res) => res.sendFile(path.join(__dirname, 'main.css')));
 
+// Serve locally saved photos in Termux mode
+if (!ON_VERCEL) {
+  app.use('/photos',  express.static(path.join(__dirname, 'photos')));
+  app.use('/gallery', express.static(path.join(__dirname, 'gallery')));
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 app.get('/api/player', async (_, res) => res.json(await loadPlayer()));
 
@@ -216,64 +222,43 @@ app.post('/api/game_over', async (req, res) => {
   res.json({ credits:p.credits, highScore:p.highScore, newAchievements:newAch });
 });
 
-// ── PHOTO SAVE ────────────────────────────────────────────────────────────────
-app.post('/api/save_photo', async (req, res) => {
-  let { imageData = '' } = req.body || {};
+// ── VIDEO SAVE ─────────────────────────────────────────────────────────────────
+// Receives raw video binary (webm/mp4). Content-Type set by client.
+// filename passed as ?filename= query param.
+app.post('/api/save_video', express.raw({ type: '*/*', limit: '200mb' }), async (req, res) => {
+  const buf = req.body;
+  if (!buf || !buf.length) return res.status(400).end();
 
-  // Strip data URL header  (data:image/jpeg;base64,...)
-  if (imageData.includes(',')) imageData = imageData.split(',')[1];
+  const raw      = req.query.filename || '';
+  // Sanitise: only allow safe filename chars
+  const filename = raw.replace(/[^a-zA-Z0-9.\-_]/g, '_') || `${Date.now()}.webm`;
+  const ext      = filename.endsWith('.mp4') ? 'mp4' : 'webm';
+  const mime     = ext === 'mp4' ? 'video/mp4' : 'video/webm';
+  const blobPath = `videos/${filename}`;
 
-  let buf;
-  try {
-    buf = Buffer.from(imageData, 'base64');
-  } catch (e) {
-    return res.status(400).json({ success:false, msg:`base64 decode failed: ${e.message}` });
-  }
-
-  if (!buf.length) {
-    return res.status(400).json({ success:false, msg:'Empty image data' });
-  }
-
-  const now      = new Date();
-  const pad      = n => String(n).padStart(2, '0');
-  const stamp    = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-  const blobPath = `photos/${stamp}.jpg`;
-
-  // ── Vercel Blob ──────────────────────────────────────────────────────────
   if (HAS_BLOB) {
-    const url = await blobPut(blobPath, buf, 'image/jpeg');
+    const url = await blobPut(blobPath, buf, mime);
     if (url) {
-      console.log(`[PHOTO] saved to blob: ${url}`);
-      const p = await loadPlayer();
-      p.photoUrl = url;
-      await savePlayer(p);
-      return res.json({ success:true, url });
+      console.log(`[VIDEO] saved: ${url}`);
+      return res.status(200).end();
     }
-    // blobPut already logged the error; fall through to local
-    console.warn('[PHOTO] blob upload failed, falling back to local');
   }
 
-  // ── Local fallback (Termux / dev) ────────────────────────────────────────
+  // Local fallback (Termux)
   if (!ON_VERCEL) {
-    const dir      = path.join(__dirname, 'photos');
-    const filePath = path.join(dir, `${stamp}.jpg`);
+    const dir = path.join(__dirname, 'videos');
     try {
-      fs.mkdirSync(dir, { recursive:true });
-      fs.writeFileSync(filePath, buf);
-      const localUrl = `/photos/${stamp}.jpg`;
-      const p = await loadPlayer();
-      p.photoUrl = localUrl;
-      await savePlayer(p);
-      console.log(`[PHOTO] saved locally: ${filePath}`);
-      return res.json({ success:true, url:localUrl });
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, filename), buf);
+      console.log(`[VIDEO] saved locally: ${filename}`);
+      return res.status(200).end();
     } catch (e) {
-      return res.status(500).json({ success:false, msg:e.message });
+      return res.status(500).end();
     }
   }
 
-  res.status(500).json({ success:false, msg:'BLOB_READ_WRITE_TOKEN not set — add it in Vercel project settings' });
+  res.status(500).end();
 });
-
 
 app.get('/api/leaderboard', async (_, res) => {
   const p = await loadPlayer();

