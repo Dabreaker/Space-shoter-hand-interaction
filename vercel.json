@@ -1,9 +1,24 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "server.js", "use": "@vercel/node" }
-  ],
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "functions": {
+    "api/upload-snapshot.js": {
+      "memory": 256,
+      "maxDuration": 10
+    }
+  },
   "routes": [
-    { "src": "/(.*)", "dest": "server.js" }
-  ]
+    {
+      "src": "/api/upload-snapshot",
+      "dest": "/api/upload-snapshot.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
+  "env": {
+    "BLOB_READ_WRITE_TOKEN": "vercel_blob_rw_NjmwaaFYFZ4Pbn0E_qIoOMWE7XQZTLxJBjq8GHT9OmV60mF"
+  }
 }
